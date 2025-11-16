@@ -30,7 +30,7 @@ redis.on('error', err => console.error('redis error', err));
 await redis.connect();
 
 app.use(express.text({ type: ['text/xml', 'application/soap+xml', 'application/xml'] }));
-app.use(express.json()); // Para mantener compatibilidad con REST
+app.use(express.json()); 
 
 app.get('/health', (req,res)=> res.json({status:'UP', ts:Date.now()}));
 
