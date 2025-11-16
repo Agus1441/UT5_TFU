@@ -1,76 +1,31 @@
 services:
-  api-gateway:
-    image: kong:3
-    ports: ["8080:8000"]
+  monolith:
+    build: .
+    ports: ["3000:3000"]
     environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: "/kong.yml"
-      KONG_LOG_LEVEL: debug
-    volumes:
-      - ./deploy/gateway/kong.yml:/kong.yml:ro
-    depends_on: [orders-write, orders-read, auth]
-
-  auth:
-    image: quay.io/keycloak/keycloak:25.0
-    command: ["start-dev", "--http-port=8081"]
-    ports: ["8081:8081"]
-
-  orders-write:
-    build: ./services/orders-write
-    environment:
-      CONFIG_URL: http://config:8088/config
-      # ⇩⇩ RABBITMQ URL COMPLETA (user/pass/puerto/vhost)
-      AMQP_URL:  amqp://guest:guest@queue:5672/
+      DATABASE_URL: postgres://postgres:dev@database:5432/postgres
+      REDIS_URL: redis://redis:6379
       QUEUE_URL: amqp://guest:guest@queue:5672/
-      PAYMENTS_QUEUE: payments
-      WRITE_DB_URL: postgres://postgres:dev@writedb:5432/postgres
-      READ_DB_URL:  postgres://postgres:dev@readdb:5432/postgres
-      PAYMENTS_URL: http://payments-adapter:3002
+      FAILURE_RATE: "0.3"
       CB_ERROR_THRESHOLD: "5"
-      CB_TIMEOUT_MS: "3000"
+      CB_TIMEOUT_MS: "10000"
     healthcheck:
-      # usa curl (alpine busybox suele traerlo; si no, ver alternativa CMD-SHELL con node)
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 10s
       retries: 5
-    depends_on: [queue, readdb, writedb, config, payments-adapter]
+    depends_on: [database, redis, queue]
 
-  orders-read:
-    build: ./services/orders-read
+  database:
+    image: postgres:16
     environment:
-      CONFIG_URL: http://config:8088/config
-      READ_DB_URL: postgres://postgres:dev@readdb:5432/postgres
-      REDIS_URL: redis://redis:6379
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
-      interval: 10s
-      retries: 5
-    depends_on: [readdb, redis, config]
+      POSTGRES_PASSWORD: dev
+    ports: ["5432:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-  payments-adapter:
-    build: ./services/payments-adapter
-    environment:
-      FAILURE_RATE: "0.3"
-      AMQP_URL:  amqp://guest:guest@queue:5672/
-      QUEUE_URL: amqp://guest:guest@queue:5672/
-      PAYMENTS_QUEUE: payments
-    healthcheck:
-      # <<< importante: que el healthcheck exista y funcione
-      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
-      interval: 10s
-      retries: 5
-    depends_on: [queue]
-    # (opcional, solo si querés probar desde el host con curl/browser)
-    # ports: ["3002:3002"]
-
-  projector:
-    build: ./services/projector
-    environment:
-      AMQP_URL:  amqp://guest:guest@queue:5672/
-      QUEUE_URL: amqp://guest:guest@queue:5672/
-      PAYMENTS_QUEUE: payments
-      READ_DB_URL: postgres://postgres:dev@readdb:5432/postgres
-    depends_on: [queue, readdb]
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
 
   queue:
     image: rabbitmq:3-management
@@ -79,21 +34,6 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
-  redis:
-    image: redis:7
+volumes:
+  postgres_data:
 
-  config:
-    build: ./infra/config-store
-    ports: ["8088:8088"]
-
-  writedb:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: dev
-    ports: ["5433:5432"]
-
-  readdb:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: dev
-    ports: ["5434:5432"]

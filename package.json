@@ -1,11 +1,15 @@
 {
-  "name": "orders-read",
+  "name": "orders-monolith",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
     "express": "^4.19.2",
     "pg": "^8.11.5",
+    "redis": "^4.7.0",
+    "amqplib": "^0.10.3",
+    "axios": "^1.7.7",
     "node-fetch": "^3.3.2",
-    "redis": "^4.7.0"
+    "opossum": "^6.0.0"
   }
 }
+
