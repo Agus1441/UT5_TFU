@@ -17,6 +17,20 @@ services:
           minute: 30
           policy: local
 
+  - name: orders-read-soap
+    url: http://orders-read:3001
+    routes:
+      - name: soap-order
+        paths: ["/soap/order"]
+        methods: ["POST"]
+        strip_path: false
+    plugins:
+      - name: key-auth
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+
   - name: orders-write
     url: http://orders-write:3000
     routes:
