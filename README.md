@@ -6,10 +6,6 @@ Versión monolítica consolidada del sistema de órdenes.
 
 - **Arquitectura monolítica**: Todos los servicios consolidados en una sola aplicación
 - **Base de datos única**: Una sola instancia PostgreSQL para lectura y escritura
-- **Comunicación síncrona**: Sin mensajería asíncrona, todo es síncrono
-- **Autenticación integrada**: Middleware de Express para autenticación
-- **Rate limiting integrado**: Middleware de Express para limitación de tasa
-- **Cache opcional**: Redis (si está disponible) o caché en memoria
 
 ## Requisitos
 
@@ -56,13 +52,4 @@ La configuración se lee desde `config.json`:
 - `paymentMaxRetries`: Número máximo de reintentos para pagos (default: 3)
 - `cacheTtlSec`: TTL del caché en segundos (default: 10)
 
-## Diferencias con la versión de microservicios
-
-- ✅ Un solo proceso en lugar de 4 servicios
-- ✅ Una sola base de datos en lugar de read/write separadas
-- ✅ Sin RabbitMQ (comunicación síncrona directa)
-- ✅ Sin API Gateway (middleware integrado)
-- ✅ Sin config-store como servicio (archivo local)
-- ✅ Proyección síncrona en lugar de asíncrona
-- ✅ Redis opcional (fallback a caché en memoria)
 
