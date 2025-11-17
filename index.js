@@ -1,4 +1,3 @@
-// index.js
 import express from 'express';
 import amqp from 'amqplib';
 import { Client as PgClient } from 'pg';
@@ -7,7 +6,6 @@ import CircuitBreaker from 'opossum';
 
 const app = express();
 
-// env (solo lo que pasaste en docker-compose)
 const DATABASE_URL = process.env.DATABASE_URL;
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
 const QUEUE_URL = process.env.QUEUE_URL || 'amqp://guest:guest@queue:5672/';
@@ -48,7 +46,6 @@ function buildGetOrderResponse(id, status, amount) {
 }
 
 (async () => {
-  // DB (write + read en la misma URL)
   const db = new PgClient({ connectionString: DATABASE_URL });
   await db.connect();
   await db.query(`CREATE TABLE IF NOT EXISTS orders_write(
@@ -58,18 +55,15 @@ function buildGetOrderResponse(id, status, amount) {
     id TEXT PRIMARY KEY, status TEXT, amount NUMERIC
   )`);
 
-  // Redis
   const redis = createRedis({ url: REDIS_URL });
   redis.on('error', err => console.error('redis error', err));
   await redis.connect();
 
-  // RabbitMQ
   const conn = await amqp.connect(QUEUE_URL);
   const ch = await conn.createChannel();
   await ch.assertQueue('projector', { durable: false });
   await ch.assertQueue('payments', { durable: false });
 
-  // projector -> orders_read
   await ch.consume('projector', async msg => {
     if (!msg) return;
     try {
@@ -93,7 +87,6 @@ function buildGetOrderResponse(id, status, amount) {
   });
   console.log('projector running');
 
-  // consumer payments
   await ch.consume('payments', msg => {
     if (!msg) return;
     const m = JSON.parse(msg.content.toString());
@@ -101,7 +94,6 @@ function buildGetOrderResponse(id, status, amount) {
     setTimeout(() => ch.ack(msg), 50);
   });
 
-  // función interna de cobro (antes /charge del payments-adapter)
   async function internalCharge() {
     if (Math.random() < FAILURE_RATE) {
       const err = new Error('random_fail');
@@ -110,9 +102,7 @@ function buildGetOrderResponse(id, status, amount) {
     return { status: 'CHARGED' };
   }
 
-  // circuit breaker
   async function chargePayment(payload) {
-    // payload no se usa, pero lo dejamos igual que antes
     return internalCharge();
   }
 
@@ -127,7 +117,6 @@ function buildGetOrderResponse(id, status, amount) {
   breaker.on('halfOpen', () => console.warn('[cb] HALF-OPEN'));
   breaker.on('close', () => console.warn('[cb] CLOSE'));
 
-  // ---------- endpoints de payments (lo que tenías en payments-adapter) ----------
   app.get('/health', (req, res) =>
     res.json({ status: 'UP', failureRate: FAILURE_RATE, ts: Date.now() })
   );
@@ -147,7 +136,6 @@ function buildGetOrderResponse(id, status, amount) {
     }
   });
 
-  // ---------- endpoints de orders-write ----------
   app.post('/orders', async (req, res) => {
     const id = String(Date.now());
     await db.query(
@@ -189,7 +177,6 @@ function buildGetOrderResponse(id, status, amount) {
     }
   });
 
-  // ---------- endpoints de orders-read (REST + SOAP) ----------
   app.get('/orders/:id', async (req, res) => {
     const id = req.params.id;
     const cacheKey = `order:${id}`;
@@ -244,7 +231,6 @@ function buildGetOrderResponse(id, status, amount) {
     }
   });
 
-  // ---------- start ----------
   app.listen(3000, () => console.log('monolith on :3000'));
 })().catch(e => {
   console.error('monolith startup error', e);
